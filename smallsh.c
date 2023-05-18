@@ -26,6 +26,7 @@
 int backgroundFlag = 0;
 int childStatus = 0;
 int backgroundChild = 0;
+//int foregroundChild = 0;
 int result = 0;
 int sourceFileDescriptor = 0;
 int targetFileDescriptor = 0;
@@ -60,7 +61,7 @@ void backgroundCheck() {
   }
 }
 // Making signals do nothing.
-void sigint_handler(int sig) {}
+void sig_handler(int sig) {}
 // Function for Word Splitting
 char *words[MAX_WORDS] = {0};
 /* Splits a string into words delimited by whitespace. Recognizes
@@ -227,20 +228,32 @@ expand(char const *word)
 
 int main(int argc, char *argv[])
 {
+
+  struct sigaction SIGINT_default = {0};
+
+  struct sigaction SIGTSTP_default = {0};
   
-  struct sigaction SIG_default = {0};
+  struct sigaction SIG_ignore = {0};
+  SIG_ignore.sa_handler = SIG_IGN;
+  sigfillset(&SIG_ignore.sa_mask);
+  SIG_ignore.sa_flags = 0;
+
+  struct sigaction SIG_empty = {0};
+  SIG_empty.sa_handler = sig_handler;
+  sigfillset(&SIG_empty.sa_mask);
+  SIG_empty.sa_flags = 0;
 
   struct sigaction SIGINT_action = {0};
   SIGINT_action.sa_handler = SIG_IGN;
   sigfillset(&SIGINT_action.sa_mask);
   SIGINT_action.sa_flags = 0;
-  sigaction(SIGINT, &SIGINT_action, &SIG_default);
+  sigaction(SIGINT, &SIGINT_action, &SIGINT_default);
 
   struct sigaction SIGTSTP_action = {0};
   SIGTSTP_action.sa_handler = SIG_IGN;
   sigfillset(&SIGTSTP_action.sa_mask);
   SIGTSTP_action.sa_flags = 0;
-  sigaction(SIGTSTP, &SIGTSTP_action, &SIG_default);
+  sigaction(SIGTSTP, &SIGTSTP_action, &SIGTSTP_default);
   
   pid = getpid();
   charPid = malloc(10 * sizeof(int));
@@ -276,8 +289,6 @@ prompt:;
     if (PS1 == NULL) PS1 = "";
     fprintf(stderr, "%s", PS1);
     // Reading input
-    SIGINT_action.sa_handler = sigint_handler;
-    sigaction(SIGINT, &SIGINT_action, NULL);
     errno = 0;
     if (input == stdin) {};
     ssize_t line_length = getline(&line, &n, input); // Reallocates line
@@ -301,8 +312,10 @@ prompt:;
         exit(0);
       }
     }
-    SIGINT_action.sa_handler = SIG_IGN;
+    SIGINT_action.sa_handler = sig_handler;
     sigaction(SIGINT, &SIGINT_action, NULL);
+    SIGTSTP_action.sa_handler = sig_handler;
+    sigaction(SIGTSTP, &SIGTSTP_action, NULL);
     /* Word Splitting, Expanding */
     nwords = wordsplit(line);
     for (size_t i = 0; i < nwords; ++i) {
@@ -376,6 +389,8 @@ prompt:;
     }
     // Forking spawn and error checking streams.
     pid_t spawnPid = fork();
+    sigaction(SIGTSTP, &SIGTSTP_default, NULL);
+    sigaction(SIGINT, &SIGINT_default, NULL);
     switch(spawnPid) {
       // Forking error
       case -1:
@@ -385,8 +400,8 @@ prompt:;
       // Parsing and verifying input, output and append files and redirecting respective data.
       case 0:
         if (backgroundFlag != 0) {
-          sigaction(SIGTSTP, &SIG_default, NULL);
-          sigaction(SIGINT, &SIG_default, NULL);
+          //sigaction(SIGTSTP, &SIGTSTP_default, &SIGTSTP_action);
+          //sigaction(SIGINT, &SIGINT_default, &SIGINT_action);
         }
         while (count > 0) {
           if (words[i] != NULL && strcmp(words[i], "<") == 0) {
@@ -454,11 +469,18 @@ prompt:;
       // If not a running background process, wait to finish
       default:
         if (backgroundFlag == 0) {
-          spawnPid = waitpid(spawnPid, &childStatus, 0);
+          spawnPid = waitpid(spawnPid, &childStatus, WUNTRACED);
           if (WIFSIGNALED(childStatus)) {
             foregroundPid = malloc(10 * sizeof(int));
             sprintf(foregroundPid, "%d", 128 + WTERMSIG(childStatus));
-          } else {
+          } 
+          else if (WIFSTOPPED(childStatus)) {
+            kill(spawnPid, SIGCONT);
+            backgroundPid = malloc(10 * sizeof(int)); // Storing child in foregroundPid
+            sprintf(backgroundPid, "%d", spawnPid);
+            fprintf(stderr, "Child process %jd stopped. Continuing.\n", (intmax_t) backgroundPid);
+          } 
+          else {
             foregroundPid = malloc(10 * sizeof(int)); // Storing child PID in foregroundPid
             sprintf(foregroundPid, "%d", WEXITSTATUS(childStatus));
           }
