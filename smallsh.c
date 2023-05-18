@@ -232,21 +232,9 @@ int main(int argc, char *argv[])
   struct sigaction SIGINT_default = {0};
 
   struct sigaction SIGTSTP_default = {0};
- 
-  /*
-  struct sigaction SIG_ignore = {0};
-  SIG_ignore.sa_handler = SIG_IGN;
-  sigfillset(&SIG_ignore.sa_mask);
-  SIG_ignore.sa_flags = 0;
-
-  struct sigaction SIG_empty = {0};
-  SIG_empty.sa_handler = sig_handler;
-  sigfillset(&SIG_empty.sa_mask);
-  SIG_empty.sa_flags = 0;
-  */
 
   struct sigaction SIGINT_action = {0};
-  SIGINT_action.sa_handler = SIG_IGN;
+  SIGINT_action.sa_handler = sig_handler;
   sigfillset(&SIGINT_action.sa_mask);
   SIGINT_action.sa_flags = 0;
   sigaction(SIGINT, &SIGINT_action, &SIGINT_default);
@@ -291,12 +279,15 @@ prompt:;
     if (PS1 == NULL) PS1 = "";
     fprintf(stderr, "%s", PS1);
     // Reading input
+    //SIGINT_action.sa_handler = sig_handler;
+   // sigaction(SIGINT, &SIGINT_action, NULL);
+    SIGTSTP_action.sa_handler = sig_handler;
+    sigaction(SIGTSTP, &SIGTSTP_action, NULL);
     errno = 0;
     if (input == stdin) {};
     ssize_t line_length = getline(&line, &n, input); // Reallocates line
     if (line_length < 0) {
       if (feof(stdin) != 0) {
-        //fprintf(stderr, "\nexit\n")
         //foregroundPid = malloc(10 * sizeof(int));
         //sprintf(foregroundPid, "%d", 0);
         //exit((int) *foregroundPid);
@@ -314,10 +305,6 @@ prompt:;
         exit(0);
       }
     }
-    SIGINT_action.sa_handler = sig_handler;
-    sigaction(SIGINT, &SIGINT_action, NULL);
-    SIGTSTP_action.sa_handler = sig_handler;
-    sigaction(SIGTSTP, &SIGTSTP_action, NULL);
     /* Word Splitting, Expanding */
     nwords = wordsplit(line);
     for (size_t i = 0; i < nwords; ++i) {
@@ -391,8 +378,8 @@ prompt:;
     }
     // Forking spawn and error checking streams.
     pid_t spawnPid = fork();
-    sigaction(SIGTSTP, &SIGTSTP_default, NULL);
-    sigaction(SIGINT, &SIGINT_default, NULL);
+    sigaction(SIGINT, &SIGINT_default, &SIGINT_action);
+    sigaction(SIGTSTP, &SIGTSTP_default, &SIGTSTP_action);
     switch(spawnPid) {
       // Forking error
       case -1:
@@ -401,10 +388,6 @@ prompt:;
         break;
       // Parsing and verifying input, output and append files and redirecting respective data.
       case 0:
-        if (backgroundFlag != 0) {
-          //sigaction(SIGTSTP, &SIGTSTP_default, &SIGTSTP_action);
-          //sigaction(SIGINT, &SIGINT_default, &SIGINT_action);
-        }
         while (count > 0) {
           if (words[i] != NULL && strcmp(words[i], "<") == 0) {
             inputFile = words[i + 1];
