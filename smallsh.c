@@ -232,7 +232,8 @@ int main(int argc, char *argv[])
   struct sigaction SIGINT_default = {0};
 
   struct sigaction SIGTSTP_default = {0};
-  
+ 
+  /*
   struct sigaction SIG_ignore = {0};
   SIG_ignore.sa_handler = SIG_IGN;
   sigfillset(&SIG_ignore.sa_mask);
@@ -242,6 +243,7 @@ int main(int argc, char *argv[])
   SIG_empty.sa_handler = sig_handler;
   sigfillset(&SIG_empty.sa_mask);
   SIG_empty.sa_flags = 0;
+  */
 
   struct sigaction SIGINT_action = {0};
   SIGINT_action.sa_handler = SIG_IGN;
