@@ -228,21 +228,14 @@ expand(char const *word)
 
 int main(int argc, char *argv[])
 {
-
   struct sigaction SIGINT_default = {0};
-
-  struct sigaction SIGTSTP_default = {0};
-
   struct sigaction SIGINT_action = {0};
-  SIGINT_action.sa_handler = sig_handler;
-  sigfillset(&SIGINT_action.sa_mask);
-  SIGINT_action.sa_flags = 0;
+  SIGINT_action.sa_handler = SIG_IGN;
   sigaction(SIGINT, &SIGINT_action, &SIGINT_default);
-
+  
+  struct sigaction SIGTSTP_default = {0};
   struct sigaction SIGTSTP_action = {0};
   SIGTSTP_action.sa_handler = SIG_IGN;
-  sigfillset(&SIGTSTP_action.sa_mask);
-  SIGTSTP_action.sa_flags = 0;
   sigaction(SIGTSTP, &SIGTSTP_action, &SIGTSTP_default);
   
   pid = getpid();
@@ -279,10 +272,9 @@ prompt:;
     if (PS1 == NULL) PS1 = "";
     fprintf(stderr, "%s", PS1);
     // Reading input
-    //SIGINT_action.sa_handler = sig_handler;
-   // sigaction(SIGINT, &SIGINT_action, NULL);
-    SIGTSTP_action.sa_handler = sig_handler;
-    sigaction(SIGTSTP, &SIGTSTP_action, NULL);
+    
+    SIGINT_action.sa_handler = sig_handler;
+    sigaction(SIGINT, &SIGINT_action, NULL);
     errno = 0;
     if (input == stdin) {};
     ssize_t line_length = getline(&line, &n, input); // Reallocates line
@@ -305,6 +297,8 @@ prompt:;
         exit(0);
       }
     }
+    SIGINT_action.sa_handler = SIG_IGN;
+    sigaction(SIGINT, &SIGINT_action, NULL);
     /* Word Splitting, Expanding */
     nwords = wordsplit(line);
     for (size_t i = 0; i < nwords; ++i) {
