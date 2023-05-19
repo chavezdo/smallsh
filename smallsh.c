@@ -372,8 +372,8 @@ prompt:;
     }
     // Forking spawn and error checking streams.
     pid_t spawnPid = fork();
-    sigaction(SIGINT, &SIGINT_default, &SIGINT_action);
-    sigaction(SIGTSTP, &SIGTSTP_default, &SIGTSTP_action);
+    //sigaction(SIGINT, &SIGINT_default, &SIGINT_action);
+    //sigaction(SIGTSTP, &SIGTSTP_default, &SIGTSTP_action);
     switch(spawnPid) {
       // Forking error
       case -1:
@@ -382,6 +382,8 @@ prompt:;
         break;
       // Parsing and verifying input, output and append files and redirecting respective data.
       case 0:
+        sigaction(SIGINT, &SIGINT_default, NULL);
+        sigaction(SIGTSTP, &SIGTSTP_default, NULL);
         while (count > 0) {
           if (words[i] != NULL && strcmp(words[i], "<") == 0) {
             inputFile = words[i + 1];
@@ -457,7 +459,7 @@ prompt:;
             kill(spawnPid, SIGCONT);
             backgroundPid = malloc(10 * sizeof(int)); // Storing child in foregroundPid
             sprintf(backgroundPid, "%d", spawnPid);
-            fprintf(stderr, "Child process %jd stopped. Continuing.\n", (intmax_t) backgroundPid);
+            fprintf(stderr, "Child process %jd stopped. Continuing.\n", (intmax_t) spawnPid);
           } 
           else {
             foregroundPid = malloc(10 * sizeof(int)); // Storing child PID in foregroundPid
