@@ -98,37 +98,7 @@ size_t wordsplit(char const *line) {
  * start and end pointers to the start and end of the parameter
  * token.
  */
-/*
-char
-param_scan(char const *word, char **start, char **end)
-{
-  static char *prev;
-  if (!word) word = prev;
-  
-  char ret = 0;
-  *start = NULL;
-  *end = NULL;
-  char *s = strchr(word, '$');
-  if (s) {
-    char *c = strchr("$!?", s[1]);
-    if (c) {
-      ret = *c;
-      *start = s;
-      *end = s + 2;
-    }
-    else if (s[1] == '{') {
-      char *e = strchr(s + 2, '}');
-      if (e) {
-        ret = '{';
-        *start = s;
-        *end = e + 1;
-      }
-    }
-  }
-  prev = *end;
-  return ret;
-}
-*/
+
 /* Simple string-builder function. Builds up a base
  * string by appending supplied strings/character ranges
  * to it.
@@ -167,6 +137,7 @@ param_scan(char const *word, char const **start, char const **end)
   prev = *end;
   return ret;
 }
+
 char *
 build_str(char const *start, char const *end)
 {
@@ -211,13 +182,14 @@ expand(char const *word)
     else if (c == '$') build_str(charPid, NULL);
     else if (c == '?') build_str(foregroundPid, NULL);
     else if (c == '{') {
-      //build_str("<Parameter: ", NULL);
-      char *varenv = build_str(start + 2, end - 1);
-      if (getenv(varenv) == NULL) varenv = "";
-      build_str(NULL, NULL);
-      build_str(getenv(varenv), NULL);
-      //build_str(getenv(build_str(start + 2, end - 1)), NULL);
-      //build_str(">", NULL);
+      char new_str[1024] = {'\0'};
+      strncpy(new_str, (start + 2), ((end - 1) - (start + 2)));
+      char *result = getenv(new_str); 
+      if (result == NULL) {
+        build_str("", NULL);
+      } else {
+        build_str(result, NULL);
+      }
     }
     pos = end;
     c = param_scan(pos, &start, &end);
@@ -265,14 +237,12 @@ prompt:;
     for (size_t i = 0; i < nwords; ++i) {
       words[i] = NULL;
     }
-    //errno = 0;
     // Manage Background processes
     backgroundCheck();
     // Printing command prompt
     if (PS1 == NULL) PS1 = "";
     fprintf(stderr, "%s", PS1);
     // Reading input
-    
     SIGINT_action.sa_handler = sig_handler;
     sigaction(SIGINT, &SIGINT_action, NULL);
     errno = 0;
@@ -280,9 +250,6 @@ prompt:;
     ssize_t line_length = getline(&line, &n, input); // Reallocates line
     if (line_length < 0) {
       if (feof(stdin) != 0) {
-        //foregroundPid = malloc(10 * sizeof(int));
-        //sprintf(foregroundPid, "%d", 0);
-        //exit((int) *foregroundPid);
         exit(0);
       }
       else if (errno == EINTR) {
@@ -293,7 +260,6 @@ prompt:;
         goto prompt;
       }
       else {
-        //err(1, "%s", input_fn);
         exit(0);
       }
     }
@@ -342,12 +308,7 @@ prompt:;
             goto prompt;
           }
         }
-        if (words[1] == NULL) {
-          //fprintf(stderr, "");
-          exit(0);
-          //exit((int) *foregroundPid);
-        }
-        fprintf(stderr, "");
+        if (words[1] == NULL) exit(0);
         exit(atoi(words[1]));
       }
       // Check for valid cd input
@@ -372,8 +333,6 @@ prompt:;
     }
     // Forking spawn and error checking streams.
     pid_t spawnPid = fork();
-    //sigaction(SIGINT, &SIGINT_default, &SIGINT_action);
-    //sigaction(SIGTSTP, &SIGTSTP_default, &SIGTSTP_action);
     switch(spawnPid) {
       // Forking error
       case -1:
